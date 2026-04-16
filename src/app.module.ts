@@ -5,8 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { SessionModule } from './session/session.module';
-import { EVentModule } from './events.modules';
-import {AuthMoudle} from './auth/auth.module';
+import { EventsModule } from './events.module';
+import {AuthModule} from './auth/auth.module';
 
 @Module({
   imports: [
@@ -18,8 +18,8 @@ import {AuthMoudle} from './auth/auth.module';
       type:'single',
       url: 'redis://:blackout2026@localhost:6379'
     }),
-    AuthMoudle,
-    EVentModule,
+    AuthModule,
+    EventsModule,
     SessionModule
   ],
   controllers: [AppController],

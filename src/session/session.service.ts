@@ -38,17 +38,21 @@ export class SessionService {
     }
 
     async findAll():Promise<GameSession[]>{
-        const keys = await this.redis.keys('session:*');
-        if(keys.length ===0)return [];
-
-        const sessions = await Promise.all(
-            keys.map(async (key)=>{
-                const data = await this.redis.get(key);
-                return JSON.parse(data!) as GameSession;
-            })
-        )
-
-        return sessions
+        const sessions: GameSession[] = [];
+        let cursor = '0';
+        do {
+            const [nextCursor, keys] = await this.redis.scan(
+                cursor, 'MATCH', 'session:*', 'COUNT', 100,
+            );
+            cursor = nextCursor;
+            if (keys.length > 0) {
+                const values = await this.redis.mget(...keys);
+                values.forEach((v) => {
+                    if (v) sessions.push(JSON.parse(v) as GameSession);
+                });
+            }
+        } while (cursor !== '0');
+        return sessions;
     }
 
     async findOne(sessionId:string) :Promise<GameSession |null> {

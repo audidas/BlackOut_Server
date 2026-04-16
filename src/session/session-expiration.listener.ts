@@ -2,18 +2,18 @@
 import { Injectable , Logger, OnModuleInit,OnModuleDestroy } from "@nestjs/common";
 import { InjectRedis } from "@nestjs-modules/ioredis";
 import Redis from 'ioredis';
-import { EventsGateWay } from "src/events.gateway";
+import { EventsGateway } from '../events.gateway';
 
 
 @Injectable()
-export class SessionExpirationListner implements OnModuleInit,OnModuleDestroy{
-    private readonly logger = new Logger(SessionExpirationListner.name);
+export class SessionExpirationListener implements OnModuleInit,OnModuleDestroy{
+    private readonly logger = new Logger(SessionExpirationListener.name);
 
     private subscriber! :Redis;
 
     constructor(
         @InjectRedis() private readonly redis:Redis,
-        private readonly gateway: EventsGateWay,
+        private readonly gateway: EventsGateway,
     ){}
 
     async onModuleInit() {

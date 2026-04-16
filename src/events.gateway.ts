@@ -9,24 +9,24 @@ import {Logger} from '@nestjs/common';
 import {Server ,WebSocket} from 'ws';
 
 @WebSocketGateway(3001)
-export class EventsGateWay implements OnGatewayConnection ,OnGatewayDisconnect{
+export class EventsGateway implements OnGatewayConnection ,OnGatewayDisconnect{
 
     @WebSocketServer()
     server!:Server;
 
-    private readonly logger = new Logger(EventsGateWay.name);
+    private readonly logger = new Logger(EventsGateway.name);
 
     private readonly sessionClients = new Map<string , Set<WebSocket>>();
 
     private readonly clientSession = new WeakMap<WebSocket , string>();
 
     handleConnection(client:WebSocket) {
-        console.log("Client Connected");
+        this.logger.log('Client Connected');
         client.send(JSON.stringify({event :'hi' , data:{message :'connect to lobby'}}));
     }
 
     handleDisconnect(client: WebSocket) {
-        console.log('Client disconnected');
+        this.logger.log('Client disconnected');
 
         const sessionId = this.clientSession.get(client);
         if(sessionId){
