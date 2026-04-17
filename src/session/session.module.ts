@@ -4,9 +4,10 @@ import { SessionService } from './session.service';
 import { EventsModule } from '../events.module';
 import { SessionExpirationListener } from './session-expiration.listener';
 import { AuthModule } from 'src/auth/auth.module';
+import { ServerModule } from 'src/server/server.module';
 
 @Module({
-  imports:[EventsModule,AuthModule],
+  imports:[EventsModule,AuthModule,ServerModule],
   controllers: [SessionController],
   providers: [SessionService, SessionExpirationListener],
   exports:[SessionService],

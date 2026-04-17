@@ -7,6 +7,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { SessionModule } from './session/session.module';
 import { EventsModule } from './events.module';
 import {AuthModule} from './auth/auth.module';
+import { ServerModule } from './server/server.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import {AuthModule} from './auth/auth.module';
     }),
     AuthModule,
     EventsModule,
-    SessionModule
+    SessionModule,
+    ServerModule,
   ],
   controllers: [AppController],
   providers: [AppService,{

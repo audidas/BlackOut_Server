@@ -3,6 +3,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import {v4 as uuidv4} from 'uuid';
 import {GameSession} from './session.interfaces';
+import { ServerService } from '../server/server.service';
 
 @Injectable()
 export class SessionService {
@@ -10,7 +11,9 @@ export class SessionService {
     private static readonly PLAYER_TTL_SECONDS = 3600;
     private static readonly WAITING_TTL_SECONDS = 180;
 
-    constructor(@InjectRedis() private readonly redis:Redis){}
+    constructor(@InjectRedis() private readonly redis:Redis ,
+                private readonly serverService:ServerService,
+    ){}
 
     async create(playerName:string) : Promise<GameSession> {
 
@@ -22,8 +25,8 @@ export class SessionService {
             status:'waiting',
             players:[playerName],
             maxPlayers: 4,
-            serverIp:'127.0.0.1',
-            serverPort:7777 ,
+            serverIp:'',
+            serverPort:0 ,
             createdAt: new Date().toISOString()
         }
 
@@ -79,7 +82,16 @@ export class SessionService {
 
         const serialized = JSON.stringify(session);
         if(session.status === 'playing'){
-            await this.redis.set(`session:${sessionId}`,serialized);
+            const server = await this.serverService.findIdle();
+            if(!server){
+                // 롤백: 방금 claim한 player 키 제거 (좀비 방지)
+                await this.redis.del(`player:${playerName}`);
+                throw new BadRequestException('배정 가능한 서버가 없습니다.');
+            }
+            session.serverIp =server.ip;
+            session.serverPort =server.port;
+            await this.serverService.markPlaying(server.serverId);
+            await this.redis.set(`session:${sessionId}`, JSON.stringify(session));
         }else{
             await this.redis.set(`session:${sessionId}`,serialized,'KEEPTTL');
         }
