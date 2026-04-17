@@ -1,5 +1,6 @@
 import {Controller , Post , Body, UnauthorizedException} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -8,12 +9,8 @@ export class AuthController {
 
     // Dummy 로그인 (실제로는 DB 조회 시간남으면 ㄱㄱ)
     @Post('login')
-    login(@Body() body :{playerName :string; password:string}){
-        const {playerName , password} = body;
-
-        if(!playerName || !password){
-            throw new UnauthorizedException('PlayerName 과 Password가 필요합니다.');
-        }
+    login(@Body() dto: LoginDto){
+        const {playerName , password} = dto;
 
         if(password !== 'blackout2026'){
             throw new UnauthorizedException('잘못된 비밀번호입니다.');

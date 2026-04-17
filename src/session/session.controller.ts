@@ -1,8 +1,7 @@
-import { Controller , Get, Post,Delete,Param,Body, UseGuards } from '@nestjs/common';
+import { Controller , Get, Post,Delete,Param, UseGuards } from '@nestjs/common';
 import { SessionService } from './session.service';
-import { CreateSessionDto } from './dto/create-session.dto';
-import { JoinSessionDto } from './dto/join-session.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('sessions')
@@ -10,8 +9,8 @@ export class SessionController {
     constructor(private readonly sessionService: SessionService){}
 
     @Post()
-    create(@Body() createSessionDto :CreateSessionDto){
-        return this.sessionService.create(createSessionDto.playerName);
+    create(@CurrentUser() playerName: string){
+        return this.sessionService.create(playerName);
     }
 
     @Get()
@@ -25,8 +24,8 @@ export class SessionController {
     }
 
     @Post(':id/join')
-    join(@Param('id') id:string, @Body() joinSessionDto:JoinSessionDto){
-        return this.sessionService.join(id,joinSessionDto.playerName);
+    join(@Param('id') id:string, @CurrentUser() playerName: string){
+        return this.sessionService.join(id, playerName);
     }
 
     @Delete(':id')

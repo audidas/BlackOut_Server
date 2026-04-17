@@ -106,6 +106,18 @@ export class SessionService {
             const playerKeys = session.players.map((name)=> `player:${name}`);
             await this.redis.del(...playerKeys);
         }
+
+        // playing 상태였다면 배정된 서버를 idle로 복귀 (좀비 서버 방지)
+        if(session && session.status === 'playing' && session.serverIp){
+            const servers = await this.serverService.findAll();
+            const assigned = servers.find(
+                (s) => s.ip === session.serverIp && s.port === session.serverPort,
+            );
+            if(assigned){
+                await this.serverService.markIdle(assigned.serverId);
+            }
+        }
+
         const result = await this.redis.del(`session:${sessionId}`);
         return result > 0;
     }

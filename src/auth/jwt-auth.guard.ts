@@ -12,13 +12,13 @@ export class JwtAuthGuard implements CanActivate{
 
     canActivate(context: ExecutionContext):boolean{
         const request = context.switchToHttp().getRequest();
-        const authHeadder  =request.headers['authorization'];
+        const authHeader = request.headers['authorization'];
 
-        if(!authHeadder || !authHeadder.startsWith('Bearer')){
+        if(!authHeader || !authHeader.startsWith('Bearer ')){
             throw new UnauthorizedException("토큰이 필요합니다.");
         }
 
-        const token = authHeadder.split(' ')[1];
+        const token = authHeader.split(' ')[1];
 
         try{
             const payload = this.jwtService.verify(token);
