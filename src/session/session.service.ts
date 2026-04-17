@@ -1,4 +1,4 @@
-import { Injectable , ConflictException , NotFoundException , BadRequestException } from '@nestjs/common';
+import { Injectable , ConflictException , NotFoundException , BadRequestException , ForbiddenException } from '@nestjs/common';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import {v4 as uuidv4} from 'uuid';
@@ -58,14 +58,14 @@ export class SessionService {
         return sessions;
     }
 
-    async findOne(sessionId:string) :Promise<GameSession |null> {
-        const data =await this.redis.get(`session:${sessionId}`);
-        return data ? JSON.parse(data) : null;
+    async findOne(sessionId:string) :Promise<GameSession> {
+        const data = await this.redis.get(`session:${sessionId}`);
+        if(!data) throw new NotFoundException('세션을 찾을 수 없습니다');
+        return JSON.parse(data) as GameSession;
     }
 
-    async join(sessionId:string , playerName:string):Promise<GameSession | null>{
-        const session = await this.findOne(sessionId);
-        if(!session) throw new NotFoundException(`세션을 찾을 수 없습니다`);
+    async join(sessionId:string , playerName:string):Promise<GameSession>{
+        const session = await this.findOne(sessionId);  // 없으면 findOne이 404 throw
         if(session.status !== 'waiting')
             throw new BadRequestException(`대기 상태가 아닌 세션에는 입장할수 없습니다`);
         if(session.players.length >= session.maxPlayers)
@@ -99,23 +99,27 @@ export class SessionService {
         return session
     }
 
-    async remove(sessionId:string) :Promise<boolean>{
-        const session = await this.findOne(sessionId);
+    async remove(sessionId:string, requester:string) :Promise<boolean>{
+        const session = await this.findOne(sessionId);  // 없으면 404
 
-        if( session && session.players.length >0){
-            const playerKeys = session.players.map((name)=> `player:${name}`);
-            await this.redis.del(...playerKeys);
+        // 상태별 권한 분기
+        // - waiting : 생성자만 취소 가능 (매칭 취소 용도)
+        // - playing : 데디 서버만 종료 가능 (차후 /finish 엔드포인트에서 처리)
+        if(session.status === 'waiting'){
+            if(session.players[0] !== requester){
+                throw new ForbiddenException('세션 생성자만 취소할 수 있습니다');
+            }
+        } else if(session.status === 'playing'){
+            throw new ForbiddenException(
+                '진행 중인 게임은 데디 서버만 종료할 수 있습니다',
+            );
         }
 
-        // playing 상태였다면 배정된 서버를 idle로 복귀 (좀비 서버 방지)
-        if(session && session.status === 'playing' && session.serverIp){
-            const servers = await this.serverService.findAll();
-            const assigned = servers.find(
-                (s) => s.ip === session.serverIp && s.port === session.serverPort,
-            );
-            if(assigned){
-                await this.serverService.markIdle(assigned.serverId);
-            }
+        // 여기 도달 시 status는 'waiting' 또는 'finished'
+        // playing 상태의 서버 정리는 추후 /sessions/:id/finish 에서 담당
+        if(session.players.length > 0){
+            const playerKeys = session.players.map((name)=> `player:${name}`);
+            await this.redis.del(...playerKeys);
         }
 
         const result = await this.redis.del(`session:${sessionId}`);

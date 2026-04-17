@@ -29,7 +29,7 @@ export class SessionController {
     }
 
     @Delete(':id')
-    remove(@Param('id') id:string){
-        return this.sessionService.remove(id);
+    remove(@Param('id') id:string, @CurrentUser() playerName: string){
+        return this.sessionService.remove(id, playerName);
     }
 }
