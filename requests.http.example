@@ -9,13 +9,18 @@
 ### 주의:
 ###   - WebSocket 테스트는 test-ws.js 스크립트 사용 (REST Client는 HTTP만)
 ###   - Redis 상태 초기화 필요 시:
-###     docker exec -it redis redis-cli -a blackout2026 FLUSHDB
+###     docker exec -it redis redis-cli -a <Redis_Password> FLUSHDB
+###
+### 🔧 첫 사용 시:
+###   1. 이 파일을 requests.http 로 복사
+###      cp requests.http.example requests.http
+###   2. .env 값에 맞춰 @pw, @apiKey 치환
+###   3. Redis 비밀번호도 docker 명령에 맞게 수정
 ### =========================================================
 
 @host = http://localhost:3000
-@pw = blackout2026
-@apiKey = blackout-dedi-key-2026
-
+@pw = <Dummy_LOGIN_PASSWORD>
+@apiKey = <SERVER_API_KEY>
 ### ------------------------------------------------------
 ### 0. 헬스체크
 ### ------------------------------------------------------
