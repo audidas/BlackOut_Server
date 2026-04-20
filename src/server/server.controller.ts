@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Param, Body, UseGuards } from '@nestjs/common';
 import { ServerService } from './server.service';
 import { ServerApiKeyGuard } from './server-api-key.guard';
+import { RegisterServerDto } from './dto/register-server.dto';
 
 @Controller('servers')
 export class ServerController {
@@ -9,7 +10,7 @@ export class ServerController {
 
     @UseGuards(ServerApiKeyGuard)
     @Post('register')
-    register(@Body() body: { ip: string; port: number }) {
+    register(@Body() body:RegisterServerDto) {
         return this.serverService.register(body.ip, body.port);
     }
 

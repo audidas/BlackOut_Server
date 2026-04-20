@@ -226,3 +226,40 @@ x-server-api-key: wrong-key
 ### 이 요청을 30회 이상 연속 클릭하면 31회째부터 429
 GET {{host}}/sessions
 Authorization: Bearer {{t1}}
+
+
+### ------------------------------------------------------
+### 8. 서버 등록 DTO 검증
+### ------------------------------------------------------
+
+### 1-a. IP 형식 오류 - >400
+POST {{host}}/servers/register
+Content-Type: application/json
+x-server-api-key: {{apiKey}}
+
+{"ip" :"not-an-ip" , "port":7777}
+
+
+### 1-b. 포트 범위 밖 - >400
+POST {{host}}/servers/register
+Content-Type: application/json
+x-server-api-key: {{apiKey}}
+
+{"ip" :"3.35.100.50" , "port":80}
+
+
+
+### 1-c. 포트 누락 - > 400
+POST {{host}}/servers/register
+Content-Type: application/json
+x-server-api-key: {{apiKey}}
+
+{"ip" :"3.35.100.50"}
+
+
+### 1-d. 정상 등록 - > 201
+POST {{host}}/servers/register
+Content-Type: application/json
+x-server-api-key: {{apiKey}}
+
+{"ip" :"3.35.100.50" , "port":7777}

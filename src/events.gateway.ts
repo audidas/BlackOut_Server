@@ -110,6 +110,15 @@ export class EventsGateway implements OnGatewayConnection ,OnGatewayDisconnect{
         this.logger.log(`emitToSession(${sessionId}, ${event}) -> ${sent}/${room.size} 명 푸시`);
     }
 
+    closeRoom(sessionId:string):void{
+        const room = this.sessionClients.get(sessionId);
+        if(!room) return;
+
+
+        this.sessionClients.delete(sessionId);
+        this.logger.log(`closeRoom(${sessionId}) : ${room.size} 명 매핑 정리`);
+    }
+
 
     private removeClientFromSession(sessionId:string , client:WebSocket):void{
         const room = this.sessionClients.get(sessionId);

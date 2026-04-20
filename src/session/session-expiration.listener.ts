@@ -69,6 +69,7 @@ export class SessionExpirationListener implements OnModuleInit,OnModuleDestroy{
             reason:'timeout',
             message:'매칭 시간이 초과되었습니다.',
         });
+        this.gateway.closeRoom(sessionId);
     }
 }
 
