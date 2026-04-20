@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import {ThrottlerModule , ThrottlerGuard} from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -17,9 +17,13 @@ import { ServerModule } from './server/server.module';
       ttl :60000,
       limit :30,
     }]),
-    RedisModule.forRoot({
-      type:'single',
-      url: 'redis://:blackout2026@localhost:6379'
+    RedisModule.forRootAsync({
+      imports:[ConfigModule],
+      inject:[ConfigService],
+      useFactory:(config :ConfigService)=>({
+        type:'single',
+        url :config.get<string>('REDIS_URL'),
+      }),
     }),
     AuthModule,
     EventsModule,
