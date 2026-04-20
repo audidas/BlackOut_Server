@@ -9,6 +9,7 @@ import { SessionModule } from './session/session.module';
 import { EventsModule } from './events.module';
 import {AuthModule} from './auth/auth.module';
 import { ServerModule } from './server/server.module';
+import { MatchmakingModule } from './matchmaking/matchmaking.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ServerModule } from './server/server.module';
     EventsModule,
     SessionModule,
     ServerModule,
+    MatchmakingModule
   ],
   controllers: [AppController],
   providers: [AppService,{

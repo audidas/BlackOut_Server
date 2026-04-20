@@ -1,4 +1,4 @@
-import { Injectable , ConflictException , NotFoundException , BadRequestException , ForbiddenException } from '@nestjs/common';
+import { Injectable , ConflictException , NotFoundException , BadRequestException } from '@nestjs/common';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import {v4 as uuidv4} from 'uuid';
@@ -27,6 +27,7 @@ export class SessionService {
             status:'waiting',
             players:[playerName],
             maxPlayers: 4,
+            serverId:'',
             serverIp:'',
             serverPort:0 ,
             createdAt: new Date().toISOString()
@@ -66,9 +67,20 @@ export class SessionService {
         return JSON.parse(data) as GameSession;
     }
 
-    async join(sessionId:string , playerName:string):Promise<GameSession>{
-        const session = await this.findOne(sessionId);  // 없으면 findOne이 404 throw
+    async findOpenSession() : Promise<GameSession | null>{
+        const all = await this.findAll();
+        const open = all.filter(
+            (s) => s.status ==='waiting' && s.players.length < s.maxPlayers
+        );
 
+        open.sort((a,b)=>b.players.length - a.players.length);
+        return open[0] ?? null;
+    }
+
+    async join(sessionId:string , playerName:string):Promise<GameSession>{
+        const session = await this.findOne(sessionId);
+
+        // 이미 참가한 플레이어는 현제 세션 반환
         if(session.players.includes(playerName)){
             return session;
         }
@@ -87,10 +99,10 @@ export class SessionService {
 
             const server = await this.serverService.findIdle();
             if(!server){
-                // 롤백: 방금 claim한 player 키 제거 (좀비 방지)
                 await this.redis.del(`player:${playerName}`);
                 throw new BadRequestException('배정 가능한 서버가 없습니다.');
             }
+            session.serverId = server.serverId;
             session.serverIp = server.ip;
             session.serverPort = server.port;
             await this.serverService.markPlaying(server.serverId);
@@ -121,33 +133,60 @@ export class SessionService {
         return session;
     }
 
-    async remove(sessionId:string, requester:string) :Promise<boolean>{
-        const session = await this.findOne(sessionId);  // 없으면 404
+    async autoMatch(playerName:string): Promise<{session:GameSession; isNewRoom :boolean}>{
 
-        // 상태별 권한 분기
+        for(let attemp = 0; attemp <2; attemp++){
+            const open = await this.findOpenSession();
 
-        if(session.status === 'waiting'){
-            if(session.players[0] !== requester){
-                throw new ForbiddenException('세션 생성자만 취소할 수 있습니다');
+            if(!open){
+                const session = await this.create(playerName);
+                return {session , isNewRoom :true};
             }
-            this.gateway.emitToSession(sessionId,'session_cancelled',{
-                sessionId,
-                reason : 'host_cancelled',
-            });
-        } else if(session.status === 'playing'){
-            throw new ForbiddenException(
-                '진행 중인 게임은 데디 서버만 종료할 수 있습니다',
-            );
+
+            try {
+                const session = await this.join(open.sessionId , playerName);
+                return {session , isNewRoom :false};
+            }catch(e){
+                if( e instanceof ConflictException) throw e;
+                if (attemp ===1) throw e;
+            }
+        }
+        throw new Error('메치메이킹 실패');
+    }
+
+    async leave(playerName: string) : Promise<{sessionDestroyed:boolean}>{
+        const sessionId =await this.redis.get(`player:${playerName}`);
+
+        if(!sessionId){
+            throw new NotFoundException('참가중인 세션이 없습니다');
+        }
+        const session = await this.findOne(sessionId);
+
+        session.players = session.players.filter((n)=> n!==playerName);
+        await this.redis.del(`player:${playerName}`);
+
+        if(session.players.length===0){
+
+            if (session.status ==='playing' && session.serverId){
+                await this.serverService.markIdle(session.serverId);
+            }
+            await this.redis.del(`session:${sessionId}`);
+            this.gateway.closeRoom(sessionId);
+            return {sessionDestroyed:true};
         }
 
-        if(session.players.length > 0){
-            const playerKeys = session.players.map((name)=> `player:${name}`);
-            await this.redis.del(...playerKeys);
-        }
-
-        const result = await this.redis.del(`session:${sessionId}`);
-        if(result >0) this.gateway.closeRoom(sessionId);
-        return result > 0;
+        await this.redis.set(
+            `session:${sessionId}`,
+            JSON.stringify(session),
+            'KEEPTTL',
+        );
+        this.gateway.emitToSession(sessionId,'player_left',{
+            sessionId,
+            playerName,
+            players:session.players,
+            count :session.players.length,
+        });
+        return {sessionDestroyed:false};
     }
 
     // 1 플레이어 = 1 세션
