@@ -205,4 +205,34 @@ export class SessionService {
         }
     }
 
+    async finish(sessionId:string) :Promise<{ok:boolean; serverId:string}> {
+        const session = await this.findOne(sessionId);
+
+        if(session.status !== 'playing'){
+            throw new BadRequestException(`세션 상태가 playing 이 아닙니다 (현재: ${session.status})`);
+        }
+        // 데디 서버 idle 복귀 - 재사용 가능
+        if (session.serverId){
+            await this.serverService.markIdle(session.serverId);
+        }
+
+        // player 키 정리 - 1 user 1session 점유 해제
+        if (session.players.length >0){
+            const playerKeys = session.players.map((name) =>`player:${name}`);
+            await this.redis.del(...playerKeys);
+        }
+
+        // 세신 키 삭제
+        await this.redis.del(`session:${sessionId}`);
+
+        // WS 룸에 종료 알림 / room 매핑 정리
+        this.gateway.emitToSession(sessionId , 'session_finished',{
+            sessionId
+        });
+        this.gateway.closeRoom(sessionId);
+
+        return {ok:true , serverId:session.serverId};
+    }
+
+
 }

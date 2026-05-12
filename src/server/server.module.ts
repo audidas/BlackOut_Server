@@ -6,6 +6,6 @@ import { ServerApiKeyGuard } from "./server-api-key.guard";
 @Module({
     controllers: [ServerController],
     providers: [ServerService, ServerApiKeyGuard],
-    exports: [ServerService],
+    exports: [ServerService,ServerApiKeyGuard ],
 })
 export class ServerModule {}
