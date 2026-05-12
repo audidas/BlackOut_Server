@@ -1,0 +1,31 @@
+services:
+  redis:
+    image: redis:7-alpine
+    # Keyspace Notifications 활성화 — session-expiration.listener 가 의존
+    # Ex = 키 만료 이벤트 (E + expired)
+    command: >
+      redis-server
+      --notify-keyspace-events Ex
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_API_KEY=${SERVER_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - PORT=3000
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -1,0 +1,33 @@
+# Stage 1 — builder
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9
+
+# 의존성 캐시 최적화 — lockfile 먼저
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# 소스 복사 + 빌드
+COPY . .
+RUN pnpm run build
+
+
+# Stage 2 — runner (prod 의존성만)
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/dist ./dist
+
+USER node
+
+EXPOSE 3000 3001
+
+CMD ["node", "dist/main"]

@@ -11,6 +11,7 @@ export class SessionService {
 
     private static readonly PLAYER_TTL_SECONDS = 3600;
     private static readonly WAITING_TTL_SECONDS = 180;
+    private static readonly PLAYING_TTL_SECONDS= 3000;
 
     constructor(@InjectRedis() private readonly redis:Redis ,
                 private readonly serverService:ServerService,
@@ -107,8 +108,8 @@ export class SessionService {
             session.serverPort = server.port;
             await this.serverService.markPlaying(server.serverId);
 
-            // playing 전환 시 TTL 제거 (게임 중엔 자동 만료 X)
-            await this.redis.set(`session:${sessionId}`, JSON.stringify(session));
+            // playing 전환 시 안전망 TTL — 정상 흐름은 /finish 가 처리, 데디 crash 등 이상 시 자동 정리
+            await this.redis.set(`session:${sessionId}`, JSON.stringify(session) ,'EX' , SessionService.PLAYING_TTL_SECONDS);
         } else {
             // waiting 상태 업데이트 — 기존 TTL 유지 (방 생성 후 3분 타이머 리셋 방지)
             await this.redis.set(`session:${sessionId}`, JSON.stringify(session), 'KEEPTTL');
