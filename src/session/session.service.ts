@@ -235,5 +235,28 @@ export class SessionService {
         return {ok:true , serverId:session.serverId};
     }
 
+    // 재접속용 - playerName 의 진행중 세션이 있으면 데디 주소 반환 없으면 null
+    async getActiveSession(playerName:string):Promise<{dediIp:string;port:number; sessionId:string} |null>{
+        const sessionId = await this.redis.get(`player:${playerName}`);
+        if(!sessionId){
+            return null;
+        }
+
+        let session:GameSession;
+        try{
+            session = await this.findOne(sessionId);
+        }catch{
+            // player 키만 남고 세션 소실 -> 재접속 불가
+            return null;
+        }
+
+        // playing + 데디 배정된 경우만 재접속 대상 (waiting 은 데디 미배정)
+        if(session.status != 'playing' || !session.serverIp){
+            return null;
+        }
+
+        return {dediIp:session.serverIp , port:session.serverPort , sessionId};
+    }
+
 
 }
