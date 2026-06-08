@@ -251,7 +251,7 @@ export class SessionService {
         }
 
         // playing + 데디 배정된 경우만 재접속 대상 (waiting 은 데디 미배정)
-        if(session.status != 'playing' || !session.serverIp){
+        if(session.status !== 'playing' || !session.serverIp){
             return null;
         }
 
