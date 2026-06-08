@@ -27,7 +27,7 @@ export class SessionService {
             sessionId,
             status:'waiting',
             players:[playerName],
-            maxPlayers: 4,
+            maxPlayers: Number(process.env.SESSION_MAX_PLAYERS) || 4, // 미설정 시 기본 4
             serverId:'',
             serverIp:'',
             serverPort:0 ,

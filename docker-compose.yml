@@ -20,6 +20,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - PORT=3000
+      # 세션 정원. 미설정 시 4. 테스트 시 .env 에 SESSION_MAX_PLAYERS=2 주입.
+      - SESSION_MAX_PLAYERS=${SESSION_MAX_PLAYERS:-4}
     ports:
       - "3000:3000"
       - "3001:3001"
