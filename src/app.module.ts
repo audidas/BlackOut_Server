@@ -11,6 +11,8 @@ import {AuthModule} from './auth/auth.module';
 import { ServerModule } from './server/server.module';
 import { MatchmakingModule } from './matchmaking/matchmaking.module';
 import { MeModule } from './me/me.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 
 @Module({
   imports: [
@@ -27,12 +29,14 @@ import { MeModule } from './me/me.module';
         url :config.get<string>('REDIS_URL'),
       }),
     }),
+    PrismaModule,
     AuthModule,
     EventsModule,
     SessionModule,
     ServerModule,
     MatchmakingModule,
     MeModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [AppService,{

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import {WsAdapter} from '@nestjs/platform-ws';
 import {ValidationPipe} from '@nestjs/common';
+import{json}from "express"
 import helmet from 'helmet';
 
 async function bootstrap() {
@@ -9,6 +10,7 @@ async function bootstrap() {
   app.useWebSocketAdapter(new WsAdapter(app));
 
   app.use(helmet());
+  app.use(json({limit:'2mb'}));
 
   app.useGlobalPipes(
     new ValidationPipe({

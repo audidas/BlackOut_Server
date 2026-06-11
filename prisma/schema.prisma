@@ -1,0 +1,42 @@
+generator client{
+    provider = "prisma-client-js"
+}
+
+datasource db{
+    provider = "postgresql"
+    url  = env("DATABASE_URL")
+}
+
+model MovementSample{
+ id BigInt @id @default(autoincrement())
+ matchId String @map("match_id")
+ accountId String @map("account_id")
+ tSec Int @map("t_sec")
+ x Float
+ y Float
+ z Float
+ levelName String @map("level_name")
+ state String
+ createdAt DateTime @default(now()) @map("created_at")
+
+ @@unique([matchId, accountId,tSec], name: "movement_idem")
+ @@index([matchId])
+ @@map("movement_sample")
+}
+
+model MatchEvent{
+    eventId String @id @map("event_id")
+    matchId String @map("match_id")
+    accountId String? @map("account_id")
+    tSec Float @map("t_sec")
+    x Float
+    y Float
+    z Float
+    levelName String @map("level_name")
+    eventType String @map("event_type")
+    context Json?
+    createdAt DateTime @default(now()) @map("created_at")
+
+    @@index([matchId])
+    @@map("match_event")
+}

@@ -7,6 +7,7 @@ RUN npm install -g pnpm@9
 
 # 의존성 캐시 최적화 — lockfile 먼저
 COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile
 
 # 소스 복사 + 빌드
@@ -22,6 +23,7 @@ WORKDIR /app
 RUN npm install -g pnpm@9
 
 COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma
 RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
