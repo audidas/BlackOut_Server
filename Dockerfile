@@ -32,4 +32,5 @@ USER node
 
 EXPOSE 3000 3001
 
-CMD ["node", "dist/main"]
+# 시작 시 마이그레이션 자동 적용(prisma migrate deploy) 후 앱 실행 — 미적용분만, 멱등
+CMD ["pnpm", "run", "start:prod"]
