@@ -16,7 +16,7 @@ export class TelemetryController {
         return this.telemetryService.ingestBatch(body);
     }
 
-    @Get('run')
+    @Get('runs')
     getRuns(@Query('arena') arena?:string){
         return this.telemetryService.getRuns(arena);
 
