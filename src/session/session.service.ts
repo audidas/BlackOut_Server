@@ -12,11 +12,12 @@ export class SessionService {
     private static readonly PLAYER_TTL_SECONDS = MATCH_KEY_TTL_SECONDS;
     private static readonly WAITING_TTL_SECONDS = 180;
     private static readonly PLAYING_TTL_SECONDS = MATCH_KEY_TTL_SECONDS;
+     private readonly logger = new Logger(SessionService.name);
 
     constructor(@InjectRedis() private readonly redis:Redis ,
                 private readonly serverService:ServerService,
                 private readonly gateway: EventsGateway,
-                private readonly logger = new Logger(SessionService.name),
+
     ){}
 
     async create(playerName:string) : Promise<GameSession> {
