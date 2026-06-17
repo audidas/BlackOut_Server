@@ -50,20 +50,19 @@ export class TelemetryService {
     }
 
     // raw 샘플 (deck.gl 클라 집계용). select 로 BigInt id 제외 — JSON 직렬화 안전.
-    async getSamples(matchId: string, state?: string, accountId?: string) {
-        return this.prisma.movementSample.findMany({
-            where: { matchId, ...(state ? { state } : {}), ...(accountId ? { accountId } : {}) },
-            select: { accountId: true, tSec: true, x: true, y: true, z: true, state: true },
-            orderBy: [{ accountId: 'asc' }, { tSec: 'asc' }],
-        });
+    async getSamples(matchId: string,levelName?:string,  state?: string, accountId?: string) {
+    return this.prisma.movementSample.findMany({
+        where: { matchId, ...(levelName ? { levelName } : {}), ...(state ? { state } : {}), ...(accountId ? { accountId } : {}) },
+        select: { accountId: true, tSec: true, x: true, y: true, z: true, state: true },
+        orderBy: [{ accountId: 'asc' }, { tSec: 'asc' }],
+    });
     }
-
     // 이벤트 (death/down 등) + context.
-    async getEvents(matchId: string, eventType?: string) {
-        return this.prisma.matchEvent.findMany({
-            where: { matchId, ...(eventType ? { eventType } : {}) },
-            select: { eventType: true, tSec: true, x: true, y: true, z: true, accountId: true, context: true },
-            orderBy: { tSec: 'asc' },
-        });
+    async getEvents(matchId: string, levelName?:string ,eventType?: string) {
+    return this.prisma.matchEvent.findMany({
+        where: { matchId, ...(levelName ? { levelName } : {}), ...(eventType ? { eventType } : {}) },
+        select: { eventType: true, tSec: true, x: true, y: true, z: true, accountId: true, context: true },
+        orderBy: { tSec: 'asc' },
+    });
     }
 }

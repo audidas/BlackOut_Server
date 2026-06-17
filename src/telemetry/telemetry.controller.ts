@@ -23,17 +23,22 @@ export class TelemetryController {
     }
 
     @Get('samples')
-    getSamples(@Query('matchId') matchId:string , @Query('state') state? :string , @Query('accountId') accountId?:string){
+    getSamples( @Query('matchId') matchId: string,
+        @Query('levelName') levelName?: string,
+        @Query('state') state?: string,
+        @Query('accountId') accountId?: string,){
         if(!matchId){
             throw new BadRequestException('matchId is required');
         }
-        return this.telemetryService.getSamples(matchId , state , accountId);
+        return this.telemetryService.getSamples(matchId ,levelName , state , accountId);
     }
 
     @Get('events')
-    getEvents(@Query('matchId') matchId: string, @Query('type') type?: string){
+    getEvents( @Query('matchId') matchId: string,
+        @Query('levelName') levelName?: string,
+        @Query('type') type?: string,){
           if (!matchId) throw new BadRequestException('matchId is required');
-        return this.telemetryService.getEvents(matchId, type);
+        return this.telemetryService.getEvents(matchId, levelName ,type);
     }
 
 }
