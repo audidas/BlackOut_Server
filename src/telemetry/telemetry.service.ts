@@ -31,5 +31,39 @@ export class TelemetryService {
         return {samples:sampleRes.count , events:eventRes.count};
         }
 
+    // 매치/아레나 목록 (드롭다운용). matchId+levelName 단위 분리 — 분석은 아레나별.
+    async getRuns(arena?: string) {
+        const grouped = await this.prisma.movementSample.groupBy({
+            by: ['matchId', 'levelName'],
+            where: arena ? { levelName: arena } : {},
+            _count: { _all: true },
+            _min: { createdAt: true },
+        });
+        return grouped
+            .map((g) => ({
+                matchId: g.matchId,
+                levelName: g.levelName,
+                startedAt: g._min.createdAt, // 적재(첫 flush) 시각 — 실제 시작의 근사
+                sampleCount: g._count._all,
+            }))
+            .sort((a, b) => (b.startedAt?.getTime() ?? 0) - (a.startedAt?.getTime() ?? 0));
+    }
 
+    // raw 샘플 (deck.gl 클라 집계용). select 로 BigInt id 제외 — JSON 직렬화 안전.
+    async getSamples(matchId: string, state?: string, accountId?: string) {
+        return this.prisma.movementSample.findMany({
+            where: { matchId, ...(state ? { state } : {}), ...(accountId ? { accountId } : {}) },
+            select: { accountId: true, tSec: true, x: true, y: true, z: true, state: true },
+            orderBy: [{ accountId: 'asc' }, { tSec: 'asc' }],
+        });
+    }
+
+    // 이벤트 (death/down 등) + context.
+    async getEvents(matchId: string, eventType?: string) {
+        return this.prisma.matchEvent.findMany({
+            where: { matchId, ...(eventType ? { eventType } : {}) },
+            select: { eventType: true, tSec: true, x: true, y: true, z: true, accountId: true, context: true },
+            orderBy: { tSec: 'asc' },
+        });
+    }
 }

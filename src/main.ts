@@ -10,6 +10,10 @@ async function bootstrap() {
   app.useWebSocketAdapter(new WsAdapter(app));
 
   app.use(helmet());
+  app.enableCors({
+    origin:true ,
+     allowedHeaders: ['content-type', 'x-server-api-key'],
+  })
   app.use(json({limit:'2mb'}));
 
   app.useGlobalPipes(
