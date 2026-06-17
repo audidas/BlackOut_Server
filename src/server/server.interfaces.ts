@@ -14,4 +14,6 @@ export interface DedicatedServer{
     lastHeartbeatAt?:string;
     deadAt?:string;
     lastHeartbeatPayload?:HeartbeatPayload;
+    currentSessionId?:string;
+    playingAt?:string;
 }

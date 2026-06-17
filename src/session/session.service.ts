@@ -1,21 +1,22 @@
-import { Injectable , ConflictException , NotFoundException , BadRequestException } from '@nestjs/common';
+import { Injectable , ConflictException , NotFoundException , BadRequestException, Logger } from '@nestjs/common';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import {v4 as uuidv4} from 'uuid';
 import {GameSession} from './session.interfaces';
-import { ServerService } from '../server/server.service';
+import { ServerService, MATCH_KEY_TTL_SECONDS } from '../server/server.service';
 import { EventsGateway } from '../events.gateway';
 
 @Injectable()
 export class SessionService {
 
-    private static readonly PLAYER_TTL_SECONDS = 3600;
+    private static readonly PLAYER_TTL_SECONDS = MATCH_KEY_TTL_SECONDS;
     private static readonly WAITING_TTL_SECONDS = 180;
-    private static readonly PLAYING_TTL_SECONDS= 3000;
+    private static readonly PLAYING_TTL_SECONDS = MATCH_KEY_TTL_SECONDS;
 
     constructor(@InjectRedis() private readonly redis:Redis ,
                 private readonly serverService:ServerService,
                 private readonly gateway: EventsGateway,
+                private readonly logger = new Logger(SessionService.name),
     ){}
 
     async create(playerName:string) : Promise<GameSession> {
@@ -106,7 +107,7 @@ export class SessionService {
             session.serverId = server.serverId;
             session.serverIp = server.ip;
             session.serverPort = server.port;
-            await this.serverService.markPlaying(server.serverId);
+            await this.serverService.markPlaying(server.serverId , sessionId);
 
             // playing 전환 시 안전망 TTL — 정상 흐름은 /finish 가 처리, 데디 crash 등 이상 시 자동 정리
             await this.redis.set(`session:${sessionId}`, JSON.stringify(session) ,'EX' , SessionService.PLAYING_TTL_SECONDS);
@@ -207,32 +208,41 @@ export class SessionService {
     }
 
     async finish(sessionId:string) :Promise<{ok:boolean; serverId:string}> {
-        const session = await this.findOne(sessionId);
-
-        if(session.status !== 'playing'){
-            throw new BadRequestException(`세션 상태가 playing 이 아닙니다 (현재: ${session.status})`);
+        let session: GameSession | null = null;
+           try {
+        session = await this.findOne(sessionId);
+    } catch(e) {
+        if(!(e instanceof NotFoundException)) throw e;
+        // 세션이 이미 만료/삭제 — 멱등 종료. 역링크로 server 찾아 markIdle 시도
+        const servers = await this.serverService.findAll();
+        const owner = servers.find((s) => s.currentSessionId === sessionId);
+        if(owner){
+            await this.serverService.markIdle(owner.serverId);
+            this.logger.log({event:'finish_idempotent_recovered', sessionId, serverId:owner.serverId});
         }
-        // 데디 서버 idle 복귀 - 재사용 가능
-        if (session.serverId){
-            await this.serverService.markIdle(session.serverId);
-        }
-
-        // player 키 정리 - 1 user 1session 점유 해제
-        if (session.players.length >0){
-            const playerKeys = session.players.map((name) =>`player:${name}`);
-            await this.redis.del(...playerKeys);
-        }
-
-        // 세신 키 삭제
-        await this.redis.del(`session:${sessionId}`);
-
-        // WS 룸에 종료 알림 / room 매핑 정리
-        this.gateway.emitToSession(sessionId , 'session_finished',{
-            sessionId
-        });
         this.gateway.closeRoom(sessionId);
+        return {ok:true, serverId: owner?.serverId ?? ''};
+    }
 
-        return {ok:true , serverId:session.serverId};
+    if(session.status !== 'playing'){
+        throw new BadRequestException(`세션 상태가 playing 이 아닙니다 (현재: ${session.status})`);
+    }
+
+    if(session.serverId){
+        await this.serverService.markIdle(session.serverId);
+    }
+
+    if(session.players.length > 0){
+        const playerKeys = session.players.map((name) => `player:${name}`);
+        await this.redis.del(...playerKeys);
+    }
+
+    await this.redis.del(`session:${sessionId}`);
+
+    this.gateway.emitToSession(sessionId, 'session_finished', {sessionId});
+    this.gateway.closeRoom(sessionId);
+
+    return {ok:true, serverId:session.serverId};
     }
 
     // 재접속용 - playerName 의 진행중 세션이 있으면 데디 주소 반환 없으면 null

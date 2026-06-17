@@ -7,6 +7,10 @@ import { DedicatedServer, HeartbeatPayload } from './server.interfaces';
 // Heartbeat TTL — 30초 주기 × 3회 누락 허용
 const HEARTBEAT_TTL_SECONDS = 90;
 
+export const MATCH_KEY_TTL_SECONDS = 21600;
+
+const PLAYING_IDLE_GRACE_MS = 120 * 1000;
+
 @Injectable()
 export class ServerService {
 
@@ -51,7 +55,50 @@ export class ServerService {
         if(wasDead){
             server.status = 'idle';
             server.deadAt = undefined;
+            server.currentSessionId = undefined;
+            server.playingAt = undefined;
             this.logger.log({event:'server_revived', serverId, ip:server.ip, port:server.port});
+        }
+
+        if(server.status === 'playing' && server.playingAt){
+            const elapsed = Date.now() - new Date(server.playingAt).getTime();
+            if(elapsed > PLAYING_IDLE_GRACE_MS){
+                const hasSessionLink = !!server.currentSessionId;
+                const sessionAlive = hasSessionLink
+                    ? (await this.redis.exists(`session:${server.currentSessionId}`)) === 1
+                    : false;
+                const isOrphan = hasSessionLink && !sessionAlive;
+                const idleByPayload = payload?.status === 'idle' && payload?.playerCount === 0;
+
+                if(isOrphan || idleByPayload){
+                    this.logger.warn({
+                        event:'server_self_heal_idle',
+                        serverId,
+                        previousSessionId: server.currentSessionId,
+                        elapsedMs: elapsed,
+                        reason: isOrphan ? 'orphan_session' : 'idle_payload',
+                    });
+                    server.status = 'idle';
+                    server.currentSessionId = undefined;
+                    server.playingAt = undefined;
+                }
+            }
+        }
+
+        // 진행 중 세션이 있으면 session + player 키 TTL refresh (매치 내내 만료 방지)
+        // self-heal 이 status 를 idle 로 바꾸면 여기서 자동으로 스킵됨
+        if(server.currentSessionId && server.status === 'playing'){
+            try {
+                await this.refreshMatchKeys(server.currentSessionId);
+            } catch(e){
+                this.logger.warn({
+                    event:'refresh_match_keys_failed',
+                    serverId,
+                    sessionId: server.currentSessionId,
+                    error:(e as Error).message,
+                });
+                // 다음 hb 에 재시도. 한 번 실패해도 6h TTL 안 갈 정도면 회복 여유 충분.
+            }
         }
 
         await this.redis.set(`server:${serverId}`,JSON.stringify(server));
@@ -59,6 +106,30 @@ export class ServerService {
 
         this.logger.debug({event:'heartbeat', serverId, status:server.status, payload});
         return server;
+    }
+
+    private async refreshMatchKeys(sessionId:string):Promise<void>{
+
+        const sessionKey = `session:${sessionId}`;
+        const data = await this.redis.get(sessionKey);
+        if(!data){
+            return;
+        }
+
+        await this.redis.expire(sessionKey , MATCH_KEY_TTL_SECONDS);
+
+        try{
+            const session = JSON.parse(data) as {players? :string[]};
+            if(Array.isArray(session.players) && session.players.length >0 ){
+                const pipe = this.redis.pipeline();
+                for(const name of session.players){
+                    pipe.expire(`player:${name}` , MATCH_KEY_TTL_SECONDS);
+                }
+                await pipe.exec();
+            }
+        }catch{
+            // Json 파싱 실패
+        }
     }
 
     // alive TTL expire 시 호출 — server-expiration.listener 가 트리거.
@@ -106,16 +177,23 @@ export class ServerService {
         return servers.find((s)=> s.status==='idle') ?? null;
     }
 
-    async markPlaying(serverId:string):Promise<DedicatedServer>{
+    async markPlaying(serverId:string , sessionId:string):Promise<DedicatedServer>{
         const server = await this.findOne(serverId);
         server.status = 'playing';
+        server.currentSessionId = sessionId;
+        server.playingAt = new Date().toISOString();
         await this.redis.set(`server:${serverId}`,JSON.stringify(server));
         return server;
     }
 
     async markIdle(serverId:string) :Promise<DedicatedServer>{
         const server= await this.findOne(serverId);
+        if(server.status ==='idle'){
+            return server;
+        }
         server.status = 'idle';
+        server.currentSessionId = undefined;
+        server.playingAt = undefined;
         await this.redis.set(`server:${serverId}`,JSON.stringify(server));
         return server;
     }

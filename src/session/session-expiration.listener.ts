@@ -3,6 +3,7 @@ import { Injectable , Logger, OnModuleInit,OnModuleDestroy } from "@nestjs/commo
 import { InjectRedis } from "@nestjs-modules/ioredis";
 import Redis from 'ioredis';
 import { EventsGateway } from '../events.gateway';
+import { ServerService } from "../server/server.service";
 
 
 @Injectable()
@@ -14,6 +15,7 @@ export class SessionExpirationListener implements OnModuleInit,OnModuleDestroy{
     constructor(
         @InjectRedis() private readonly redis:Redis,
         private readonly gateway: EventsGateway,
+          private readonly serverService: ServerService,
     ){}
 
     async onModuleInit() {
@@ -62,6 +64,17 @@ export class SessionExpirationListener implements OnModuleInit,OnModuleDestroy{
             );
         }else {
             this.logger.log(`세션 ${sessionId} 만료 (좀비 player 키 없음)`);
+        }
+
+        try {
+            const servers = await this.serverService.findAll();
+            const owner = servers.find((s) => s.currentSessionId === sessionId);
+            if(owner && owner.status === 'playing'){
+                await this.serverService.markIdle(owner.serverId);
+                this.logger.log(`세션 ${sessionId} 만료 -> owner 데디 ${owner.serverId} markIdle`);
+                }
+        } catch(e){
+             this.logger.warn({event:'orphan_server_cleanup_failed', sessionId, error:(e as Error).message});
         }
 
         this.gateway.emitToSession(sessionId,'matchmaking_failed',{
